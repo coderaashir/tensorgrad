@@ -40,5 +40,27 @@ class Value:
         out._backward = _backward
         return out
 
+    def backward(self):
+        """Backpropagate from this node through the whole graph.
+
+        We need every node's gradient to be complete before it pushes gradient
+        to its parents, so we visit nodes in reverse topological order.
+        """
+        topo = []
+        visited = set()
+
+        def build(v):
+            if v not in visited:
+                visited.add(v)
+                for child in v._prev:
+                    build(child)
+                topo.append(v)
+
+        build(self)
+
+        self.grad = 1.0  # d(self)/d(self)
+        for v in reversed(topo):
+            v._backward()
+
     def __repr__(self):
         return f"Value(data={self.data:.4f}, grad={self.grad:.4f})"
