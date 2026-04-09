@@ -21,6 +21,21 @@ def _to_array(data, dtype=None):
     return arr
 
 
+def _unbroadcast(grad, shape):
+    """Sum ``grad`` down to ``shape``, undoing NumPy broadcasting.
+
+    Broadcasting can (1) add leading dimensions and (2) stretch size-1
+    dimensions. If an input was stretched to produce the output, each of its
+    elements was used several times, so its gradient is the sum over those uses.
+    """
+    while grad.ndim > len(shape):
+        grad = grad.sum(axis=0)
+    for axis, size in enumerate(shape):
+        if size == 1 and grad.shape[axis] != 1:
+            grad = grad.sum(axis=axis, keepdims=True)
+    return grad
+
+
 class Tensor:
     def __init__(self, data, requires_grad=False, dtype=None):
         self.data = _to_array(data, dtype)
@@ -122,8 +137,10 @@ class Tensor:
     def __add__(self, other):
         other = _ensure(other)
 
+        sa, sb = self.shape, other.shape
+
         def backward(g):
-            return g, g
+            return _unbroadcast(g, sa), _unbroadcast(g, sb)
 
         return Tensor._make(self.data + other.data, (self, other), "+", backward)
 
@@ -132,9 +149,43 @@ class Tensor:
         a, b = self.data, other.data
 
         def backward(g):
-            return g * b, g * a
+            return _unbroadcast(g * b, a.shape), _unbroadcast(g * a, b.shape)
 
         return Tensor._make(a * b, (self, other), "*", backward)
+
+    def __neg__(self):
+        return Tensor._make(-self.data, (self,), "neg", lambda g: (-g,))
+
+    def __sub__(self, other):
+        other = _ensure(other)
+        sa, sb = self.shape, other.shape
+
+        def backward(g):
+            return _unbroadcast(g, sa), _unbroadcast(-g, sb)
+
+        return Tensor._make(self.data - other.data, (self, other), "-", backward)
+
+    def __truediv__(self, other):
+        other = _ensure(other)
+        a, b = self.data, other.data
+
+        def backward(g):
+            # d(a/b)/da = 1/b,  d(a/b)/db = -a/b^2
+            return _unbroadcast(g / b, a.shape), _unbroadcast(-g * a / (b * b), b.shape)
+
+        return Tensor._make(a / b, (self, other), "/", backward)
+
+    def __radd__(self, other):
+        return self + other
+
+    def __rsub__(self, other):
+        return _ensure(other) - self
+
+    def __rmul__(self, other):
+        return self * other
+
+    def __rtruediv__(self, other):
+        return _ensure(other) / self
 
 
 def _ensure(x):
