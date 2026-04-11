@@ -222,6 +222,43 @@ class Tensor:
         mask = self.data > 0
         return Tensor._make(self.data * mask, (self,), "relu", lambda g: (g * mask,))
 
+    # ------------------------------------------------------------ reductions
+    def sum(self, axis=None, keepdims=False):
+        shape = self.shape
+
+        def backward(g):
+            # Every input element contributed once to its output element, so
+            # the gradient is just copied (broadcast) back out.
+            if axis is not None and not keepdims:
+                g = np.expand_dims(g, axis)
+            return (np.broadcast_to(g, shape),)
+
+        out = self.data.sum(axis=axis, keepdims=keepdims)
+        return Tensor._make(out, (self,), "sum", backward)
+
+    def mean(self, axis=None, keepdims=False):
+        if axis is None:
+            n = self.size
+        else:
+            axes = axis if isinstance(axis, tuple) else (axis,)
+            n = int(np.prod([self.shape[a] for a in axes]))
+        return self.sum(axis=axis, keepdims=keepdims) / n
+
+    def max(self, axis=None, keepdims=False):
+        x = self.data
+        out = x.max(axis=axis, keepdims=keepdims)
+
+        def backward(g):
+            full = out if (keepdims or axis is None) else np.expand_dims(out, axis)
+            if axis is not None and not keepdims:
+                g = np.expand_dims(g, axis)
+            # Gradient goes to the max element(s); ties share it equally.
+            mask = (x == full).astype(x.dtype)
+            mask = mask / mask.sum(axis=axis, keepdims=True)
+            return (mask * g,)
+
+        return Tensor._make(out, (self,), "max", backward)
+
 
 def _ensure(x):
     return x if isinstance(x, Tensor) else Tensor(x)
