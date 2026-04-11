@@ -187,6 +187,41 @@ class Tensor:
     def __rtruediv__(self, other):
         return _ensure(other) / self
 
+    # ------------------------------------------------------------- unary ops
+    def __pow__(self, exponent):
+        assert isinstance(exponent, (int, float)), "only constant exponents"
+        x = self.data
+
+        def backward(g):
+            return (g * exponent * x ** (exponent - 1),)
+
+        return Tensor._make(x**exponent, (self,), f"**{exponent}", backward)
+
+    def exp(self):
+        e = np.exp(self.data)
+        return Tensor._make(e, (self,), "exp", lambda g: (g * e,))
+
+    def log(self):
+        x = self.data
+        return Tensor._make(np.log(x), (self,), "log", lambda g: (g / x,))
+
+    def sqrt(self):
+        return self**0.5
+
+    def tanh(self):
+        t = np.tanh(self.data)
+        return Tensor._make(t, (self,), "tanh", lambda g: (g * (1 - t * t),))
+
+    def sigmoid(self):
+        # sigmoid(x) = (1 + tanh(x/2)) / 2, which never overflows (1/(1+e^-x)
+        # does for very negative x).
+        s = 0.5 * (1 + np.tanh(0.5 * self.data))
+        return Tensor._make(s, (self,), "sigmoid", lambda g: (g * s * (1 - s),))
+
+    def relu(self):
+        mask = self.data > 0
+        return Tensor._make(self.data * mask, (self,), "relu", lambda g: (g * mask,))
+
 
 def _ensure(x):
     return x if isinstance(x, Tensor) else Tensor(x)
