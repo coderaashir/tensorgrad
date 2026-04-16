@@ -259,6 +259,26 @@ class Tensor:
 
         return Tensor._make(out, (self,), "max", backward)
 
+    # ---------------------------------------------------------------- matmul
+    def __matmul__(self, other):
+        other = _ensure(other)
+        a, b = self.data, other.data
+        if a.ndim < 2 or b.ndim < 2:
+            raise ValueError("matmul needs inputs with at least 2 dims")
+
+        def backward(g):
+            # For C = A @ B:  dA = dC @ B^T,  dB = A^T @ dC.
+            # With batch dims, the batch part may have been broadcast, so we
+            # unbroadcast like any other op.
+            ga = g @ np.swapaxes(b, -1, -2)
+            gb = np.swapaxes(a, -1, -2) @ g
+            return _unbroadcast(ga, a.shape), _unbroadcast(gb, b.shape)
+
+        return Tensor._make(a @ b, (self, other), "@", backward)
+
+    def __rmatmul__(self, other):
+        return _ensure(other) @ self
+
 
 def _ensure(x):
     return x if isinstance(x, Tensor) else Tensor(x)
