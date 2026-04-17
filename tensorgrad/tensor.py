@@ -279,6 +279,58 @@ class Tensor:
     def __rmatmul__(self, other):
         return _ensure(other) @ self
 
+    # ------------------------------------------------------------ shape ops
+    def reshape(self, *shape):
+        if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
+            shape = tuple(shape[0])
+        old = self.shape
+        return Tensor._make(
+            self.data.reshape(shape), (self,), "reshape", lambda g: (g.reshape(old),)
+        )
+
+    def flatten(self, start_dim=1):
+        return self.reshape(self.shape[:start_dim] + (-1,))
+
+    def transpose(self, *axes):
+        if len(axes) == 1 and isinstance(axes[0], (tuple, list)):
+            axes = tuple(axes[0])
+        axes = axes or tuple(reversed(range(self.ndim)))
+        inverse = tuple(np.argsort(axes))
+        return Tensor._make(
+            self.data.transpose(axes), (self,), "transpose", lambda g: (g.transpose(inverse),)
+        )
+
+    @property
+    def T(self):
+        return self.transpose()
+
+    def __getitem__(self, idx):
+        if isinstance(idx, Tensor):
+            idx = idx.data.astype(np.int64)
+        elif isinstance(idx, tuple):
+            idx = tuple(i.data.astype(np.int64) if isinstance(i, Tensor) else i for i in idx)
+        shape, dtype = self.shape, self.dtype
+
+        def backward(g):
+            full = np.zeros(shape, dtype=dtype)
+            # np.add.at (not full[idx] += g) so repeated indices accumulate.
+            np.add.at(full, idx, g)
+            return (full,)
+
+        return Tensor._make(self.data[idx], (self,), "getitem", backward)
+
+    @staticmethod
+    def concat(tensors, axis=0):
+        tensors = [_ensure(t) for t in tensors]
+        sizes = [t.shape[axis] for t in tensors]
+        splits = np.cumsum(sizes)[:-1]
+
+        def backward(g):
+            return tuple(np.split(g, splits, axis=axis))
+
+        data = np.concatenate([t.data for t in tensors], axis=axis)
+        return Tensor._make(data, tuple(tensors), "concat", backward)
+
 
 def _ensure(x):
     return x if isinstance(x, Tensor) else Tensor(x)
