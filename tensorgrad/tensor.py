@@ -9,7 +9,31 @@ That changes two things:
   gradient must be summed back down to the input's shape.
 """
 
+import contextlib
+
 import numpy as np
+
+_grad_enabled = True
+
+
+@contextlib.contextmanager
+def no_grad():
+    """Context manager that stops ops from recording the graph.
+
+    Use it for evaluation and for optimizer updates: it saves memory and time
+    because no backward closures (which hold on to intermediate arrays) are kept.
+    """
+    global _grad_enabled
+    prev = _grad_enabled
+    _grad_enabled = False
+    try:
+        yield
+    finally:
+        _grad_enabled = prev
+
+
+def is_grad_enabled():
+    return _grad_enabled
 
 
 def _to_array(data, dtype=None):
@@ -71,6 +95,13 @@ class Tensor:
     def item(self):
         return self.data.item()
 
+    def detach(self):
+        """Same data, cut off from the graph."""
+        return Tensor(self.data)
+
+    def zero_grad(self):
+        self.grad = None
+
     def __repr__(self):
         grad = ", requires_grad=True" if self.requires_grad else ""
         return f"Tensor({self.data}{grad})"
@@ -84,7 +115,7 @@ class Tensor:
         where ``g`` is the gradient flowing into the output.
         """
         out = Tensor(data)
-        out.requires_grad = any(p.requires_grad for p in parents)
+        out.requires_grad = _grad_enabled and any(p.requires_grad for p in parents)
         if out.requires_grad:
             out._prev = parents
             out._op = op
@@ -334,3 +365,20 @@ class Tensor:
 
 def _ensure(x):
     return x if isinstance(x, Tensor) else Tensor(x)
+
+
+# ------------------------------------------------------------------ factories
+def tensor(data, requires_grad=False, dtype=None):
+    return Tensor(data, requires_grad=requires_grad, dtype=dtype)
+
+
+def zeros(*shape, requires_grad=False, dtype=np.float32):
+    return Tensor(np.zeros(shape, dtype=dtype), requires_grad=requires_grad)
+
+
+def ones(*shape, requires_grad=False, dtype=np.float32):
+    return Tensor(np.ones(shape, dtype=dtype), requires_grad=requires_grad)
+
+
+def randn(*shape, requires_grad=False, dtype=np.float32):
+    return Tensor(np.random.randn(*shape).astype(dtype), requires_grad=requires_grad)
