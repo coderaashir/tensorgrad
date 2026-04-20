@@ -82,3 +82,27 @@ class Module:
                 lines.append(f"  ({name}): {child}")
         lines.append(")")
         return "\n".join(lines) if len(lines) > 2 else f"{type(self).__name__}()"
+
+
+# ------------------------------------------------------------------ layers
+def kaiming_normal(fan_in, shape):
+    """He initialisation: keeps activation variance roughly constant through
+    ReLU layers, so deep nets don't start with vanishing/exploding signals."""
+    return np.random.randn(*shape).astype(np.float32) * np.sqrt(2.0 / fan_in)
+
+
+class Linear(Module):
+    """y = x @ W + b, with W of shape (in_features, out_features)."""
+
+    def __init__(self, in_features, out_features, bias=True):
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = Parameter(kaiming_normal(in_features, (in_features, out_features)))
+        self.bias = Parameter(np.zeros(out_features)) if bias else None
+
+    def forward(self, x):
+        out = x @ self.weight
+        return out + self.bias if self.bias is not None else out
+
+    def __repr__(self):
+        return f"Linear({self.in_features}, {self.out_features}, bias={self.bias is not None})"
