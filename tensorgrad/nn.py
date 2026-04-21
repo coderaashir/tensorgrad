@@ -106,3 +106,60 @@ class Linear(Module):
 
     def __repr__(self):
         return f"Linear({self.in_features}, {self.out_features}, bias={self.bias is not None})"
+
+
+# ------------------------------------------------------------- activations
+class ReLU(Module):
+    def forward(self, x):
+        return x.relu()
+
+    def __repr__(self):
+        return "ReLU()"
+
+
+class Tanh(Module):
+    def forward(self, x):
+        return x.tanh()
+
+    def __repr__(self):
+        return "Tanh()"
+
+
+class Sigmoid(Module):
+    def forward(self, x):
+        return x.sigmoid()
+
+    def __repr__(self):
+        return "Sigmoid()"
+
+
+class Flatten(Module):
+    """(N, d1, d2, ...) -> (N, d1*d2*...)"""
+
+    def forward(self, x):
+        return x.flatten(1)
+
+    def __repr__(self):
+        return "Flatten()"
+
+
+class Sequential(Module):
+    def __init__(self, *layers):
+        self.layers = list(layers)
+
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
+    def __getitem__(self, i):
+        return self.layers[i]
+
+    def __len__(self):
+        return len(self.layers)
+
+    def __repr__(self):
+        inner = "\n".join(
+            f"  ({i}): " + repr(layer).replace("\n", "\n  ") for i, layer in enumerate(self.layers)
+        )
+        return f"Sequential(\n{inner}\n)"
