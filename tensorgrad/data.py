@@ -65,3 +65,31 @@ def load_mnist(normalize=True, flatten=False):
         prep(arrays["test_images"]),
         arrays["test_labels"].astype(np.int64),
     )
+
+
+class DataLoader:
+    """Iterate over (X, y) NumPy arrays in mini-batches.
+
+    Yields plain NumPy arrays; wrap them in Tensors in the training loop.
+    """
+
+    def __init__(self, X, y, batch_size=64, shuffle=True, drop_last=False, seed=None):
+        assert len(X) == len(y)
+        self.X, self.y = X, y
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.drop_last = drop_last
+        self.rng = np.random.default_rng(seed)
+
+    def __len__(self):
+        n = len(self.X)
+        return n // self.batch_size if self.drop_last else -(-n // self.batch_size)
+
+    def __iter__(self):
+        n = len(self.X)
+        idx = self.rng.permutation(n) if self.shuffle else np.arange(n)
+        for start in range(0, n, self.batch_size):
+            batch = idx[start : start + self.batch_size]
+            if self.drop_last and len(batch) < self.batch_size:
+                break
+            yield self.X[batch], self.y[batch]
