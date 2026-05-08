@@ -66,3 +66,49 @@ def accuracy(logits, targets):
         targets = targets.data
     preds = logits.data.argmax(axis=-1)
     return float((preds == np.asarray(targets)).mean())
+
+
+# ---------------------------------------------------------------- im2col
+def _out_size(size, k, stride, padding):
+    return (size + 2 * padding - k) // stride + 1
+
+
+def im2col(x, kh, kw, stride=1, padding=0):
+    """Unfold image patches into rows so convolution becomes one matmul.
+
+    x: (N, C, H, W) array  ->  (N * Ho * Wo, C * kh * kw) array
+
+    Each row holds every input value one output pixel "sees". Uses a strided
+    view, so the only copy is the final reshape.
+    """
+    N, C, H, W = x.shape
+    Ho, Wo = _out_size(H, kh, stride, padding), _out_size(W, kw, stride, padding)
+    if padding:
+        x = np.pad(x, ((0, 0), (0, 0), (padding, padding), (padding, padding)))
+    # windows: (N, C, H', W', kh, kw) for every stride-1 position
+    windows = np.lib.stride_tricks.sliding_window_view(x, (kh, kw), axis=(2, 3))
+    windows = windows[:, :, ::stride, ::stride][:, :, :Ho, :Wo]
+    # -> (N, Ho, Wo, C, kh, kw) so each output pixel's patch is contiguous
+    cols = windows.transpose(0, 2, 3, 1, 4, 5).reshape(N * Ho * Wo, C * kh * kw)
+    return cols, Ho, Wo
+
+
+def col2im(cols, x_shape, kh, kw, stride=1, padding=0):
+    """The adjoint of im2col: scatter-add patch rows back into an image.
+
+    Overlapping patches touched the same input pixel several times, so their
+    gradients add up. We loop over the kh*kw kernel offsets (small) rather
+    than over output pixels (large).
+    """
+    N, C, H, W = x_shape
+    Ho, Wo = _out_size(H, kh, stride, padding), _out_size(W, kw, stride, padding)
+    cols = cols.reshape(N, Ho, Wo, C, kh, kw)
+    out = np.zeros((N, C, H + 2 * padding, W + 2 * padding), dtype=cols.dtype)
+    for i in range(kh):
+        for j in range(kw):
+            out[:, :, i : i + stride * Ho : stride, j : j + stride * Wo : stride] += cols[
+                :, :, :, :, i, j
+            ].transpose(0, 3, 1, 2)
+    if padding:
+        out = out[:, :, padding:-padding, padding:-padding]
+    return out
