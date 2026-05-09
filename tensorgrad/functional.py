@@ -112,3 +112,35 @@ def col2im(cols, x_shape, kh, kw, stride=1, padding=0):
     if padding:
         out = out[:, :, padding:-padding, padding:-padding]
     return out
+
+
+def conv2d(x, weight, bias=None, stride=1, padding=0):
+    """2-D convolution (really cross-correlation, like every DL library).
+
+    x: (N, C, H, W), weight: (F, C, kh, kw), bias: (F,) -> (N, F, Ho, Wo)
+
+    Forward:  out = im2col(x) @ W_flat^T + b
+    Backward: with G = upstream grad reshaped to (N*Ho*Wo, F):
+              dW = G^T @ cols,  db = sum(G),  dx = col2im(G @ W_flat)
+    """
+    F_, C, kh, kw = weight.shape
+    N = x.shape[0]
+    cols, Ho, Wo = im2col(x.data, kh, kw, stride, padding)
+    w_flat = weight.data.reshape(F_, -1)
+    out = cols @ w_flat.T
+    if bias is not None:
+        out = out + bias.data
+    out = out.reshape(N, Ho, Wo, F_).transpose(0, 3, 1, 2)
+
+    x_shape = x.shape
+
+    def backward(g):
+        G = g.transpose(0, 2, 3, 1).reshape(-1, F_)
+        dw = (G.T @ cols).reshape(weight.shape) if weight.requires_grad else None
+        dx = col2im(G @ w_flat, x_shape, kh, kw, stride, padding) if x.requires_grad else None
+        if bias is None:
+            return dx, dw
+        return dx, dw, G.sum(axis=0)
+
+    parents = (x, weight) if bias is None else (x, weight, bias)
+    return Tensor._make(np.ascontiguousarray(out), parents, "conv2d", backward)
