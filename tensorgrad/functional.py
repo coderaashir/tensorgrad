@@ -144,3 +144,31 @@ def conv2d(x, weight, bias=None, stride=1, padding=0):
 
     parents = (x, weight) if bias is None else (x, weight, bias)
     return Tensor._make(np.ascontiguousarray(out), parents, "conv2d", backward)
+
+
+def max_pool2d(x, kernel_size=2, stride=None):
+    """Max pooling over k x k windows. x: (N, C, H, W) -> (N, C, Ho, Wo).
+
+    Backward routes each output's gradient to the single input that won the
+    max in its window (the first one, if there's a tie).
+    """
+    k = kernel_size
+    s = stride or k
+    N, C, H, W = x.shape
+    Ho, Wo = (H - k) // s + 1, (W - k) // s + 1
+    windows = np.lib.stride_tricks.sliding_window_view(x.data, (k, k), axis=(2, 3))
+    windows = windows[:, :, ::s, ::s][:, :, :Ho, :Wo].reshape(N, C, Ho, Wo, k * k)
+    argmax = windows.argmax(axis=-1)
+    out = np.take_along_axis(windows, argmax[..., None], axis=-1)[..., 0]
+
+    shape, dtype = x.shape, x.dtype
+
+    def backward(g):
+        dx = np.zeros(shape, dtype=dtype)
+        for i in range(k):
+            for j in range(k):
+                mask = argmax == i * k + j
+                dx[:, :, i : i + s * Ho : s, j : j + s * Wo : s] += g * mask
+        return (dx,)
+
+    return Tensor._make(out, (x,), "max_pool2d", backward)
