@@ -168,6 +168,27 @@ class Sigmoid(Module):
         return "Sigmoid()"
 
 
+class Dropout(Module):
+    """Zero each activation with probability p during training.
+
+    Survivors are scaled by 1/(1-p) ("inverted dropout") so the expected value
+    is unchanged and eval mode can just pass inputs through.
+    """
+
+    def __init__(self, p=0.5):
+        assert 0.0 <= p < 1.0
+        self.p = p
+
+    def forward(self, x):
+        if not self.training or self.p == 0.0:
+            return x
+        mask = (np.random.rand(*x.shape) >= self.p).astype(x.dtype) / (1.0 - self.p)
+        return x * Tensor(mask)
+
+    def __repr__(self):
+        return f"Dropout(p={self.p})"
+
+
 class Flatten(Module):
     """(N, d1, d2, ...) -> (N, d1*d2*...)"""
 
