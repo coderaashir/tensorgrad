@@ -9,6 +9,7 @@ from collections import OrderedDict
 
 import numpy as np
 
+from . import functional as F
 from .tensor import Tensor
 
 
@@ -106,6 +107,40 @@ class Linear(Module):
 
     def __repr__(self):
         return f"Linear({self.in_features}, {self.out_features}, bias={self.bias is not None})"
+
+
+class Conv2d(Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True):
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        fan_in = in_channels * kernel_size * kernel_size
+        shape = (out_channels, in_channels, kernel_size, kernel_size)
+        self.weight = Parameter(kaiming_normal(fan_in, shape))
+        self.bias = Parameter(np.zeros(out_channels)) if bias else None
+
+    def forward(self, x):
+        return F.conv2d(x, self.weight, self.bias, self.stride, self.padding)
+
+    def __repr__(self):
+        return (
+            f"Conv2d({self.in_channels}, {self.out_channels}, kernel_size={self.kernel_size}, "
+            f"stride={self.stride}, padding={self.padding})"
+        )
+
+
+class MaxPool2d(Module):
+    def __init__(self, kernel_size=2, stride=None):
+        self.kernel_size = kernel_size
+        self.stride = stride or kernel_size
+
+    def forward(self, x):
+        return F.max_pool2d(x, self.kernel_size, self.stride)
+
+    def __repr__(self):
+        return f"MaxPool2d(kernel_size={self.kernel_size}, stride={self.stride})"
 
 
 # ------------------------------------------------------------- activations
