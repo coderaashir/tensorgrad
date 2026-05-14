@@ -67,6 +67,29 @@ class Module:
         for p in self.parameters():
             p.grad = None
 
+    def state_dict(self):
+        return OrderedDict((name, p.data.copy()) for name, p in self.named_parameters())
+
+    def load_state_dict(self, state):
+        params = dict(self.named_parameters())
+        missing = set(params) - set(state)
+        unexpected = set(state) - set(params)
+        if missing or unexpected:
+            raise KeyError(f"missing: {sorted(missing)}, unexpected: {sorted(unexpected)}")
+        for name, value in state.items():
+            if params[name].shape != value.shape:
+                raise ValueError(f"{name}: expected {params[name].shape}, got {value.shape}")
+            params[name].data[...] = value
+
+    def save(self, path):
+        """Save parameters to a .npz file."""
+        np.savez(path, **self.state_dict())
+
+    def load(self, path):
+        with np.load(path) as f:
+            self.load_state_dict({k: f[k] for k in f.files})
+        return self
+
     def train(self, mode=True):
         for m in self.modules():
             m.training = mode

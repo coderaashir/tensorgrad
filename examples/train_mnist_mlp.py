@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--hidden", type=int, default=256)
     parser.add_argument("--subset", type=int, default=0, help="use only N training images")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--save", default="", help="path to save weights (.npz)")
     parser.add_argument("--out", default="results/mnist_mlp.json")
     args = parser.parse_args()
 
@@ -48,6 +49,9 @@ def main():
         seed=args.seed,
         history_path=args.out,
     )
+    if args.save:
+        model.save(args.save)
+        print(f"saved weights to {args.save}")
 
 
 if __name__ == "__main__":
