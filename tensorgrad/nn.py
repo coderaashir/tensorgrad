@@ -25,6 +25,9 @@ class Parameter(Tensor):
 
 class Module:
     training = True
+    # Names of non-trainable arrays (e.g. BatchNorm running stats) that
+    # should still be saved in checkpoints.
+    _buffers = ()
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
@@ -67,19 +70,39 @@ class Module:
         for p in self.parameters():
             p.grad = None
 
+    def _named_state(self, prefix=""):
+        """(name, owner, attr) for every parameter and buffer, recursively."""
+        for name, value in self._children():
+            full = f"{prefix}{name}"
+            if isinstance(value, Parameter):
+                yield full, value, None
+            else:
+                yield from value._named_state(prefix=full + ".")
+        for buf in self._buffers:
+            yield f"{prefix}{buf}", self, buf
+
     def state_dict(self):
-        return OrderedDict((name, p.data.copy()) for name, p in self.named_parameters())
+        state = OrderedDict()
+        for name, owner, attr in self._named_state():
+            arr = owner.data if attr is None else getattr(owner, attr)
+            state[name] = np.array(arr, copy=True)
+        return state
 
     def load_state_dict(self, state):
-        params = dict(self.named_parameters())
-        missing = set(params) - set(state)
-        unexpected = set(state) - set(params)
+        entries = {name: (owner, attr) for name, owner, attr in self._named_state()}
+        missing = set(entries) - set(state)
+        unexpected = set(state) - set(entries)
         if missing or unexpected:
             raise KeyError(f"missing: {sorted(missing)}, unexpected: {sorted(unexpected)}")
         for name, value in state.items():
-            if params[name].shape != value.shape:
-                raise ValueError(f"{name}: expected {params[name].shape}, got {value.shape}")
-            params[name].data[...] = value
+            owner, attr = entries[name]
+            current = owner.data if attr is None else getattr(owner, attr)
+            if current.shape != value.shape:
+                raise ValueError(f"{name}: expected {current.shape}, got {value.shape}")
+            if attr is None:
+                owner.data[...] = value
+            else:
+                setattr(owner, attr, np.array(value, dtype=current.dtype))
 
     def save(self, path):
         """Save parameters to a .npz file."""
@@ -164,6 +187,45 @@ class MaxPool2d(Module):
 
     def __repr__(self):
         return f"MaxPool2d(kernel_size={self.kernel_size}, stride={self.stride})"
+
+
+class BatchNorm2d(Module):
+    """Normalise each channel over (N, H, W), then scale and shift.
+
+    Built entirely from existing Tensor ops, so autograd derives the (fairly
+    involved) backward pass for us. Keeps running averages for eval mode.
+    """
+
+    _buffers = ("running_mean", "running_var")
+
+    def __init__(self, num_features, eps=1e-5, momentum=0.1):
+        self.num_features = num_features
+        self.eps = eps
+        self.momentum = momentum
+        self.weight = Parameter(np.ones(num_features))
+        self.bias = Parameter(np.zeros(num_features))
+        self.running_mean = np.zeros((1, num_features, 1, 1), dtype=np.float32)
+        self.running_var = np.ones((1, num_features, 1, 1), dtype=np.float32)
+
+    def forward(self, x):
+        axes = (0, 2, 3)
+        if self.training:
+            mean = x.mean(axis=axes, keepdims=True)
+            centered = x - mean
+            var = (centered * centered).mean(axis=axes, keepdims=True)
+            m = self.momentum
+            n = x.size / x.shape[1]
+            self.running_mean = (1 - m) * self.running_mean + m * mean.data
+            # running var uses the unbiased estimate, like PyTorch
+            self.running_var = (1 - m) * self.running_var + m * var.data * n / max(n - 1, 1)
+            x_hat = centered / (var + self.eps).sqrt()
+        else:
+            x_hat = (x - Tensor(self.running_mean)) / np.sqrt(self.running_var + self.eps)
+        C = self.num_features
+        return x_hat * self.weight.reshape(1, C, 1, 1) + self.bias.reshape(1, C, 1, 1)
+
+    def __repr__(self):
+        return f"BatchNorm2d({self.num_features})"
 
 
 # ------------------------------------------------------------- activations
