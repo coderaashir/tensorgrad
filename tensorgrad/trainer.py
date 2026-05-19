@@ -33,11 +33,13 @@ def fit(
     lr_schedule=None,
     seed=0,
     history_path=None,
+    augment=None,
 ):
     """Train ``model`` with cross-entropy.
 
     data: (X_train, y_train, X_test, y_test) NumPy arrays
     lr_schedule: optional function epoch -> learning rate
+    augment: optional function applied to each training batch of inputs
     history_path: if given, per-epoch metrics are written there as JSON
     """
     X_train, y_train, X_test, y_test = data
@@ -52,6 +54,8 @@ def fit(
         t0 = time.time()
         running, running_acc = [], []
         for xb, yb in loader:
+            if augment is not None:
+                xb = augment(xb)
             logits = model(Tensor(xb))
             loss = F.cross_entropy(logits, yb)
             optimizer.zero_grad()
@@ -91,3 +95,16 @@ def fit(
                 json.dump(history, f)
 
     return history
+
+
+def cosine_schedule(base_lr, epochs, warmup=0, min_lr=0.0):
+    """Linear warmup for ``warmup`` epochs, then cosine decay to ``min_lr``."""
+    import math
+
+    def lr(epoch):  # epoch is 1-based
+        if epoch <= warmup:
+            return base_lr * epoch / warmup
+        t = (epoch - warmup - 1) / max(1, epochs - warmup - 1)
+        return min_lr + 0.5 * (base_lr - min_lr) * (1 + math.cos(math.pi * t))
+
+    return lr
