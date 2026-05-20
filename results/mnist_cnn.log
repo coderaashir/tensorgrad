@@ -1,0 +1,66 @@
+Sequential(
+  (0): Conv2d(1, 16, kernel_size=3, stride=1, padding=1)
+  (1): ReLU()
+  (2): MaxPool2d(kernel_size=2, stride=2)
+  (3): Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
+  (4): ReLU()
+  (5): MaxPool2d(kernel_size=2, stride=2)
+  (6): Flatten()
+  (7): Linear(1568, 128, bias=True)
+  (8): ReLU()
+  (9): Dropout(p=0.25)
+  (10): Linear(128, 10, bias=True)
+)
+parameters: 206,922
+epoch 1 step   100  loss 0.8209  acc 77.03%
+epoch 1 step   200  loss 0.2532  acc 92.33%
+epoch 1 step   300  loss 0.1627  acc 95.09%
+epoch 1 step   400  loss 0.1424  acc 95.69%
+epoch 1 step   500  loss 0.1152  acc 96.58%
+epoch 1 step   600  loss 0.1112  acc 96.66%
+epoch 1 step   700  loss 0.1062  acc 96.58%
+epoch 1 step   800  loss 0.0943  acc 97.12%
+epoch 1 step   900  loss 0.0905  acc 97.36%
+== epoch 1: train loss 0.2054 acc 93.97% | test loss 0.0601 acc 98.03% | 24.0s
+epoch 2 step  1000  loss 0.0685  acc 97.83%
+epoch 2 step  1100  loss 0.0696  acc 97.86%
+epoch 2 step  1200  loss 0.0676  acc 97.67%
+epoch 2 step  1300  loss 0.0742  acc 97.66%
+epoch 2 step  1400  loss 0.0693  acc 97.77%
+epoch 2 step  1500  loss 0.0580  acc 98.48%
+epoch 2 step  1600  loss 0.0639  acc 98.17%
+epoch 2 step  1700  loss 0.0514  acc 98.28%
+epoch 2 step  1800  loss 0.0623  acc 98.03%
+== epoch 2: train loss 0.0638 acc 98.01% | test loss 0.0405 acc 98.59% | 24.9s
+epoch 3 step  1900  loss 0.0652  acc 97.92%
+epoch 3 step  2000  loss 0.0514  acc 98.42%
+epoch 3 step  2100  loss 0.0463  acc 98.47%
+epoch 3 step  2200  loss 0.0489  acc 98.33%
+epoch 3 step  2300  loss 0.0483  acc 98.52%
+epoch 3 step  2400  loss 0.0390  acc 98.69%
+epoch 3 step  2500  loss 0.0511  acc 98.45%
+epoch 3 step  2600  loss 0.0502  acc 98.61%
+epoch 3 step  2700  loss 0.0448  acc 98.72%
+epoch 3 step  2800  loss 0.0537  acc 98.41%
+== epoch 3: train loss 0.0483 acc 98.51% | test loss 0.0349 acc 98.81% | 24.3s
+epoch 4 step  2900  loss 0.0346  acc 98.89%
+epoch 4 step  3000  loss 0.0332  acc 98.97%
+epoch 4 step  3100  loss 0.0385  acc 98.81%
+epoch 4 step  3200  loss 0.0404  acc 98.72%
+epoch 4 step  3300  loss 0.0519  acc 98.28%
+epoch 4 step  3400  loss 0.0336  acc 98.89%
+epoch 4 step  3500  loss 0.0386  acc 98.81%
+epoch 4 step  3600  loss 0.0346  acc 98.89%
+epoch 4 step  3700  loss 0.0414  acc 98.73%
+== epoch 4: train loss 0.0385 acc 98.79% | test loss 0.0361 acc 98.81% | 23.6s
+epoch 5 step  3800  loss 0.0232  acc 99.09%
+epoch 5 step  3900  loss 0.0304  acc 99.02%
+epoch 5 step  4000  loss 0.0254  acc 99.12%
+epoch 5 step  4100  loss 0.0329  acc 98.81%
+epoch 5 step  4200  loss 0.0316  acc 98.91%
+epoch 5 step  4300  loss 0.0321  acc 99.19%
+epoch 5 step  4400  loss 0.0298  acc 99.00%
+epoch 5 step  4500  loss 0.0367  acc 98.94%
+epoch 5 step  4600  loss 0.0319  acc 98.92%
+== epoch 5: train loss 0.0311 acc 98.99% | test loss 0.0386 acc 99.00% | 23.5s
+saved weights to checkpoints/mnist_cnn.npz
