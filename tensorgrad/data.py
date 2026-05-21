@@ -1,7 +1,4 @@
-"""Dataset download/parse helpers and a minimal DataLoader.
-
-Files are cached under ``./data`` (override with the TENSORGRAD_DATA env var).
-"""
+"""Dataset download/parse helpers and a minimal DataLoader."""
 
 import gzip
 import os
@@ -19,7 +16,6 @@ MNIST_FILES = {
     "test_images": "t10k-images-idx3-ubyte.gz",
     "test_labels": "t10k-labels-idx1-ubyte.gz",
 }
-# Per-pixel mean/std of the MNIST training set (after scaling to [0, 1]).
 MNIST_MEAN, MNIST_STD = 0.1307, 0.3081
 
 
@@ -43,11 +39,7 @@ def _read_idx(path):
 
 
 def load_mnist(normalize=True, flatten=False):
-    """Return (X_train, y_train, X_test, y_test).
-
-    X is float32 of shape (N, 1, 28, 28), or (N, 784) if ``flatten``.
-    y is int64 of shape (N,).
-    """
+    """Return (X_train, y_train, X_test, y_test)."""
     root = os.path.join(DATA_DIR, "mnist")
     arrays = {}
     for key, fname in MNIST_FILES.items():
@@ -68,10 +60,7 @@ def load_mnist(normalize=True, flatten=False):
 
 
 class DataLoader:
-    """Iterate over (X, y) NumPy arrays in mini-batches.
-
-    Yields plain NumPy arrays; wrap them in Tensors in the training loop.
-    """
+    """Iterate over (X, y) NumPy arrays in mini-batches."""
 
     def __init__(self, X, y, batch_size=64, shuffle=True, drop_last=False, seed=None):
         assert len(X) == len(y)
@@ -95,7 +84,6 @@ class DataLoader:
             yield self.X[batch], self.y[batch]
 
 
-# ---------------------------------------------------------------- CIFAR-10
 CIFAR10_URL = "https://www.cs.toronto.edu/~kriz/cifar-10-binary.tar.gz"
 CIFAR10_CLASSES = (
     "airplane", "automobile", "bird", "cat", "deer",
@@ -106,11 +94,7 @@ CIFAR10_STD = np.array([0.2470, 0.2435, 0.2616], dtype=np.float32)
 
 
 def load_cifar10(normalize=True):
-    """Return (X_train, y_train, X_test, y_test); X is float32 (N, 3, 32, 32).
-
-    Uses the binary release (not the pickled one), where each record is
-    1 label byte followed by 3072 pixel bytes (1024 R, 1024 G, 1024 B).
-    """
+    """Return (X_train, y_train, X_test, y_test); X is float32 (N, 3, 32, 32)."""
     import tarfile
 
     root = os.path.join(DATA_DIR, "cifar10")

@@ -1,9 +1,4 @@
-"""A scalar-valued autograd engine.
-
-Each ``Value`` wraps a single Python float. Doing math on Values builds a graph
-(a DAG) where every node remembers its parents and how to send gradient back to
-them. Calling ``backward()`` on the output walks that graph in reverse.
-"""
+"""A scalar-valued autograd engine."""
 
 import math
 
@@ -12,18 +7,15 @@ class Value:
     def __init__(self, data, _children=(), _op=""):
         self.data = float(data)
         self.grad = 0.0
-        # Called during the backward pass. It reads self.grad and adds the
-        # right amount into each parent's .grad (chain rule).
         self._backward = lambda: None
         self._prev = set(_children)
-        self._op = _op  # for debugging / graph visualisation
+        self._op = _op
 
     def __add__(self, other):
         other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data + other.data, (self, other), "+")
 
         def _backward():
-            # d(a+b)/da = 1, d(a+b)/db = 1
             self.grad += out.grad
             other.grad += out.grad
 
@@ -35,7 +27,6 @@ class Value:
         out = Value(self.data * other.data, (self, other), "*")
 
         def _backward():
-            # d(a*b)/da = b, d(a*b)/db = a
             self.grad += other.data * out.grad
             other.grad += self.data * out.grad
 
@@ -57,7 +48,7 @@ class Value:
         out = Value(e, (self,), "exp")
 
         def _backward():
-            self.grad += e * out.grad  # d(e^x)/dx = e^x
+            self.grad += e * out.grad
 
         out._backward = _backward
         return out
@@ -90,8 +81,6 @@ class Value:
         out._backward = _backward
         return out
 
-    # Everything below is built out of the primitives above, so it gets
-    # gradients for free.
     def __neg__(self):
         return self * -1
 
@@ -101,24 +90,20 @@ class Value:
     def __truediv__(self, other):
         return self * other**-1
 
-    def __radd__(self, other):  # other + self
+    def __radd__(self, other):
         return self + other
 
-    def __rsub__(self, other):  # other - self
+    def __rsub__(self, other):
         return other + (-self)
 
-    def __rmul__(self, other):  # other * self
+    def __rmul__(self, other):
         return self * other
 
-    def __rtruediv__(self, other):  # other / self
+    def __rtruediv__(self, other):
         return other * self**-1
 
     def backward(self):
-        """Backpropagate from this node through the whole graph.
-
-        We need every node's gradient to be complete before it pushes gradient
-        to its parents, so we visit nodes in reverse topological order.
-        """
+        """Backpropagate from this node through the whole graph."""
         topo = []
         visited = set()
 
@@ -131,7 +116,7 @@ class Value:
 
         build(self)
 
-        self.grad = 1.0  # d(self)/d(self)
+        self.grad = 1.0
         for v in reversed(topo):
             v._backward()
 

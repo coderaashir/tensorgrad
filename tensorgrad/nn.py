@@ -1,9 +1,4 @@
-"""Neural-network modules, PyTorch-style.
-
-A ``Module`` is any object with a ``forward``. It finds its ``Parameter``s by
-walking its own attributes (including sub-modules and lists of sub-modules),
-so layers don't have to register anything by hand.
-"""
+"""Neural-network modules, PyTorch-style."""
 
 from collections import OrderedDict
 
@@ -25,8 +20,6 @@ class Parameter(Tensor):
 
 class Module:
     training = True
-    # Names of non-trainable arrays (e.g. BatchNorm running stats) that
-    # should still be saved in checkpoints.
     _buffers = ()
 
     def forward(self, *args, **kwargs):
@@ -35,7 +28,6 @@ class Module:
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
 
-    # ---------------------------------------------------------- traversal
     def _children(self):
         for name, value in vars(self).items():
             if isinstance(value, (Parameter, Module)):
@@ -65,7 +57,6 @@ class Module:
     def num_parameters(self):
         return sum(p.size for p in self.parameters())
 
-    # -------------------------------------------------------------- state
     def zero_grad(self):
         for p in self.parameters():
             p.grad = None
@@ -131,10 +122,8 @@ class Module:
         return "\n".join(lines) if len(lines) > 2 else f"{type(self).__name__}()"
 
 
-# ------------------------------------------------------------------ layers
 def kaiming_normal(fan_in, shape):
-    """He initialisation: keeps activation variance roughly constant through
-    ReLU layers, so deep nets don't start with vanishing/exploding signals."""
+    """He initialisation."""
     return np.random.randn(*shape).astype(np.float32) * np.sqrt(2.0 / fan_in)
 
 
@@ -190,11 +179,7 @@ class MaxPool2d(Module):
 
 
 class BatchNorm2d(Module):
-    """Normalise each channel over (N, H, W), then scale and shift.
-
-    Built entirely from existing Tensor ops, so autograd derives the (fairly
-    involved) backward pass for us. Keeps running averages for eval mode.
-    """
+    """Normalise each channel over (N, H, W), then scale and shift."""
 
     _buffers = ("running_mean", "running_var")
 
@@ -216,7 +201,7 @@ class BatchNorm2d(Module):
             m = self.momentum
             n = x.size / x.shape[1]
             self.running_mean = (1 - m) * self.running_mean + m * mean.data
-            # running var uses the unbiased estimate, like PyTorch
+            # unbiased, like PyTorch
             self.running_var = (1 - m) * self.running_var + m * var.data * n / max(n - 1, 1)
             x_hat = centered / (var + self.eps).sqrt()
         else:
@@ -228,7 +213,6 @@ class BatchNorm2d(Module):
         return f"BatchNorm2d({self.num_features})"
 
 
-# ------------------------------------------------------------- activations
 class ReLU(Module):
     def forward(self, x):
         return x.relu()
@@ -254,11 +238,7 @@ class Sigmoid(Module):
 
 
 class Dropout(Module):
-    """Zero each activation with probability p during training.
-
-    Survivors are scaled by 1/(1-p) ("inverted dropout") so the expected value
-    is unchanged and eval mode can just pass inputs through.
-    """
+    """Zero each activation with probability p during training."""
 
     def __init__(self, p=0.5):
         assert 0.0 <= p < 1.0

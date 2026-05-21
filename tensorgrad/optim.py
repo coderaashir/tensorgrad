@@ -17,11 +17,7 @@ class Optimizer:
 
 
 class SGD(Optimizer):
-    """Stochastic gradient descent with optional momentum and weight decay.
-
-        v = momentum * v + (grad + weight_decay * p)
-        p = p - lr * v
-    """
+    """Stochastic gradient descent with optional momentum and weight decay."""
 
     def __init__(self, params, lr=0.01, momentum=0.0, weight_decay=0.0):
         super().__init__(params, lr)
@@ -44,13 +40,7 @@ class SGD(Optimizer):
 
 
 class Adam(Optimizer):
-    """Adam (Kingma & Ba, 2015), optionally with decoupled weight decay (AdamW).
-
-        m = b1 * m + (1 - b1) * g          # running mean of gradients
-        v = b2 * v + (1 - b2) * g^2        # running mean of squared gradients
-        m_hat, v_hat = bias-corrected m, v (they start at 0)
-        p = p - lr * m_hat / (sqrt(v_hat) + eps)
-    """
+    """Adam (Kingma & Ba, 2015), optionally with decoupled weight decay (AdamW)."""
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0):
         super().__init__(params, lr)

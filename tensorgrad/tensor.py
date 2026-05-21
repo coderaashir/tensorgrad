@@ -1,13 +1,4 @@
-"""An N-dimensional Tensor with reverse-mode autograd, backed by NumPy.
-
-Same idea as the scalar ``Value`` engine, but each node holds a whole array.
-That changes two things:
-
-* Every op's backward has to work on arrays (e.g. matmul's gradient is another
-  matmul, not a product of two numbers).
-* NumPy broadcasting means an input can be smaller than the output. Its
-  gradient must be summed back down to the input's shape.
-"""
+"""An N-dimensional Tensor with reverse-mode autograd, backed by NumPy."""
 
 import contextlib
 
@@ -18,11 +9,7 @@ _grad_enabled = True
 
 @contextlib.contextmanager
 def no_grad():
-    """Context manager that stops ops from recording the graph.
-
-    Use it for evaluation and for optimizer updates: it saves memory and time
-    because no backward closures (which hold on to intermediate arrays) are kept.
-    """
+    """Context manager that stops ops from recording the graph."""
     global _grad_enabled
     prev = _grad_enabled
     _grad_enabled = False
@@ -46,12 +33,7 @@ def _to_array(data, dtype=None):
 
 
 def _unbroadcast(grad, shape):
-    """Sum ``grad`` down to ``shape``, undoing NumPy broadcasting.
-
-    Broadcasting can (1) add leading dimensions and (2) stretch size-1
-    dimensions. If an input was stretched to produce the output, each of its
-    elements was used several times, so its gradient is the sum over those uses.
-    """
+    """Sum grad down to shape, undoing broadcasting."""
     while grad.ndim > len(shape):
         grad = grad.sum(axis=0)
     for axis, size in enumerate(shape):
@@ -69,7 +51,6 @@ class Tensor:
         self._prev = ()
         self._op = ""
 
-    # ------------------------------------------------------------------ basics
     @property
     def shape(self):
         return self.data.shape
@@ -106,14 +87,9 @@ class Tensor:
         grad = ", requires_grad=True" if self.requires_grad else ""
         return f"Tensor({self.data}{grad})"
 
-    # ------------------------------------------------------------ graph helpers
     @staticmethod
     def _make(data, parents, op, backward):
-        """Create an output tensor and, if needed, hook it into the graph.
-
-        ``backward`` is a function ``g -> tuple of grads`` (one per parent)
-        where ``g`` is the gradient flowing into the output.
-        """
+        """Create an output tensor and, if needed, hook it into the graph."""
         out = Tensor(data)
         out.requires_grad = _grad_enabled and any(p.requires_grad for p in parents)
         if out.requires_grad:
@@ -138,8 +114,6 @@ class Tensor:
                 raise RuntimeError("grad must be given for non-scalar outputs")
             grad = np.ones_like(self.data)
 
-        # Iterative topological sort (a recursive one hits Python's recursion
-        # limit on long graphs, e.g. unrolled training loops).
         topo, visited = [], set()
         stack = [(self, False)]
         while stack:
@@ -164,7 +138,6 @@ class Tensor:
                 if g is not None:
                     parent._accumulate(g)
 
-    # --------------------------------------------------------- elementwise ops
     def __add__(self, other):
         other = _ensure(other)
 
@@ -201,7 +174,6 @@ class Tensor:
         a, b = self.data, other.data
 
         def backward(g):
-            # d(a/b)/da = 1/b,  d(a/b)/db = -a/b^2
             return _unbroadcast(g / b, a.shape), _unbroadcast(-g * a / (b * b), b.shape)
 
         return Tensor._make(a / b, (self, other), "/", backward)
@@ -218,7 +190,6 @@ class Tensor:
     def __rtruediv__(self, other):
         return _ensure(other) / self
 
-    # ------------------------------------------------------------- unary ops
     def __pow__(self, exponent):
         assert isinstance(exponent, (int, float)), "only constant exponents"
         x = self.data
@@ -244,8 +215,7 @@ class Tensor:
         return Tensor._make(t, (self,), "tanh", lambda g: (g * (1 - t * t),))
 
     def sigmoid(self):
-        # sigmoid(x) = (1 + tanh(x/2)) / 2, which never overflows (1/(1+e^-x)
-        # does for very negative x).
+        # overflow-safe form of 1 / (1 + exp(-x))
         s = 0.5 * (1 + np.tanh(0.5 * self.data))
         return Tensor._make(s, (self,), "sigmoid", lambda g: (g * s * (1 - s),))
 
@@ -253,13 +223,10 @@ class Tensor:
         mask = self.data > 0
         return Tensor._make(self.data * mask, (self,), "relu", lambda g: (g * mask,))
 
-    # ------------------------------------------------------------ reductions
     def sum(self, axis=None, keepdims=False):
         shape = self.shape
 
         def backward(g):
-            # Every input element contributed once to its output element, so
-            # the gradient is just copied (broadcast) back out.
             if axis is not None and not keepdims:
                 g = np.expand_dims(g, axis)
             return (np.broadcast_to(g, shape),)
@@ -283,14 +250,12 @@ class Tensor:
             full = out if (keepdims or axis is None) else np.expand_dims(out, axis)
             if axis is not None and not keepdims:
                 g = np.expand_dims(g, axis)
-            # Gradient goes to the max element(s); ties share it equally.
             mask = (x == full).astype(x.dtype)
             mask = mask / mask.sum(axis=axis, keepdims=True)
             return (mask * g,)
 
         return Tensor._make(out, (self,), "max", backward)
 
-    # ---------------------------------------------------------------- matmul
     def __matmul__(self, other):
         other = _ensure(other)
         a, b = self.data, other.data
@@ -298,9 +263,6 @@ class Tensor:
             raise ValueError("matmul needs inputs with at least 2 dims")
 
         def backward(g):
-            # For C = A @ B:  dA = dC @ B^T,  dB = A^T @ dC.
-            # With batch dims, the batch part may have been broadcast, so we
-            # unbroadcast like any other op.
             ga = g @ np.swapaxes(b, -1, -2)
             gb = np.swapaxes(a, -1, -2) @ g
             return _unbroadcast(ga, a.shape), _unbroadcast(gb, b.shape)
@@ -310,7 +272,6 @@ class Tensor:
     def __rmatmul__(self, other):
         return _ensure(other) @ self
 
-    # ------------------------------------------------------------ shape ops
     def reshape(self, *shape):
         if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
             shape = tuple(shape[0])
@@ -344,7 +305,7 @@ class Tensor:
 
         def backward(g):
             full = np.zeros(shape, dtype=dtype)
-            # np.add.at (not full[idx] += g) so repeated indices accumulate.
+            # add.at so repeated indices accumulate
             np.add.at(full, idx, g)
             return (full,)
 
@@ -367,7 +328,6 @@ def _ensure(x):
     return x if isinstance(x, Tensor) else Tensor(x)
 
 
-# ------------------------------------------------------------------ factories
 def tensor(data, requires_grad=False, dtype=None):
     return Tensor(data, requires_grad=requires_grad, dtype=dtype)
 

@@ -1,7 +1,4 @@
-"""Train a 2-hidden-layer MLP on MNIST with tensorgrad.
-
-    python examples/train_mnist_mlp.py --epochs 10
-"""
+"""Train a 2-hidden-layer MLP on MNIST with tensorgrad."""
 
 import argparse
 

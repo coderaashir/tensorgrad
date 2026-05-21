@@ -1,12 +1,4 @@
-"""Train a small VGG-style CNN on CIFAR-10 with tensorgrad.
-
-    [conv-bn-relu x2, maxpool] at widths w, 2w, 4w, then a linear classifier.
-
-    python examples/train_cifar_cnn.py --epochs 10 --width 32
-
-This is CPU-only NumPy, so it's slow compared with PyTorch on a GPU; use
---width 16 or --subset for a quicker run.
-"""
+"""Train a small VGG-style CNN on CIFAR-10 with tensorgrad."""
 
 import argparse
 

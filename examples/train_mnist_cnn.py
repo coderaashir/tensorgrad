@@ -1,11 +1,4 @@
-"""Train a small CNN on MNIST with tensorgrad.
-
-    conv(1->16, 3x3) -> relu -> maxpool 2   28x28 -> 14x14
-    conv(16->32, 3x3) -> relu -> maxpool 2  14x14 -> 7x7
-    flatten -> linear(1568->128) -> relu -> dropout -> linear(128->10)
-
-    python examples/train_mnist_cnn.py --epochs 3
-"""
+"""Train a small CNN on MNIST with tensorgrad."""
 
 import argparse
 

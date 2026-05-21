@@ -1,9 +1,4 @@
-"""Numerical gradient checking.
-
-The single most useful debugging tool when writing backward passes by hand:
-compare the analytic gradient from ``backward()`` with a finite-difference
-estimate. Use float64 inputs, since float32 is too noisy for this.
-"""
+"""Numerical gradient checking."""
 
 import numpy as np
 
@@ -30,12 +25,7 @@ def numerical_grad(f, inputs, eps=1e-6):
 
 
 def gradcheck(f, inputs, eps=1e-6, atol=1e-5, rtol=1e-4, verbose=False):
-    """Check ``f``'s backward against finite differences.
-
-    ``f`` takes Tensors and returns a Tensor; the output is summed into a
-    scalar, then each input's analytic gradient is compared with a
-    numerical one. Raises AssertionError on mismatch, returns True otherwise.
-    """
+    """Check ``f``'s backward against finite differences."""
     inputs = [x if isinstance(x, Tensor) else Tensor(x) for x in inputs]
     for x in inputs:
         if x.dtype != np.float64:

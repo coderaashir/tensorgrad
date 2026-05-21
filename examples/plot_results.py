@@ -1,8 +1,4 @@
-"""Plot training curves from the JSON histories written by the example scripts.
-
-    python examples/plot_results.py results/mnist_mlp.json results/mnist_cnn.json
-    python examples/plot_results.py results/*.json --out assets/curves.png
-"""
+"""Plot training curves from the JSON histories written by the example scripts."""
 
 import argparse
 import json

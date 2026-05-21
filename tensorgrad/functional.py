@@ -18,14 +18,7 @@ def sigmoid(x):
 
 
 def log_softmax(x, axis=-1):
-    """log(softmax(x)), computed stably as one fused op.
-
-    Forward:  y = x - max(x) - log(sum(exp(x - max(x))))
-    Backward: dx = g - softmax(x) * sum(g)
-
-    Building this out of exp/sum/log ops would also work, but the fused
-    version is faster and never overflows.
-    """
+    """log(softmax(x)), computed stably as one fused op."""
     z = x.data - x.data.max(axis=axis, keepdims=True)
     logsumexp = np.log(np.exp(z).sum(axis=axis, keepdims=True))
     out = z - logsumexp
@@ -42,11 +35,7 @@ def softmax(x, axis=-1):
 
 
 def cross_entropy(logits, targets):
-    """Mean negative log-likelihood of integer class ``targets``.
-
-    logits: (N, C) Tensor of unnormalised scores
-    targets: (N,) array/Tensor of class indices in [0, C)
-    """
+    """Mean negative log-likelihood of integer class ``targets``."""
     if isinstance(targets, Tensor):
         targets = targets.data
     targets = np.asarray(targets).astype(np.int64)
@@ -68,38 +57,24 @@ def accuracy(logits, targets):
     return float((preds == np.asarray(targets)).mean())
 
 
-# ---------------------------------------------------------------- im2col
 def _out_size(size, k, stride, padding):
     return (size + 2 * padding - k) // stride + 1
 
 
 def im2col(x, kh, kw, stride=1, padding=0):
-    """Unfold image patches into rows so convolution becomes one matmul.
-
-    x: (N, C, H, W) array  ->  (N * Ho * Wo, C * kh * kw) array
-
-    Each row holds every input value one output pixel "sees". Uses a strided
-    view, so the only copy is the final reshape.
-    """
+    """Unfold image patches into rows so convolution becomes one matmul."""
     N, C, H, W = x.shape
     Ho, Wo = _out_size(H, kh, stride, padding), _out_size(W, kw, stride, padding)
     if padding:
         x = np.pad(x, ((0, 0), (0, 0), (padding, padding), (padding, padding)))
-    # windows: (N, C, H', W', kh, kw) for every stride-1 position
     windows = np.lib.stride_tricks.sliding_window_view(x, (kh, kw), axis=(2, 3))
     windows = windows[:, :, ::stride, ::stride][:, :, :Ho, :Wo]
-    # -> (N, Ho, Wo, C, kh, kw) so each output pixel's patch is contiguous
     cols = windows.transpose(0, 2, 3, 1, 4, 5).reshape(N * Ho * Wo, C * kh * kw)
     return cols, Ho, Wo
 
 
 def col2im(cols, x_shape, kh, kw, stride=1, padding=0):
-    """The adjoint of im2col: scatter-add patch rows back into an image.
-
-    Overlapping patches touched the same input pixel several times, so their
-    gradients add up. We loop over the kh*kw kernel offsets (small) rather
-    than over output pixels (large).
-    """
+    """The adjoint of im2col: scatter-add patch rows back into an image."""
     N, C, H, W = x_shape
     Ho, Wo = _out_size(H, kh, stride, padding), _out_size(W, kw, stride, padding)
     cols = cols.reshape(N, Ho, Wo, C, kh, kw)
@@ -115,14 +90,7 @@ def col2im(cols, x_shape, kh, kw, stride=1, padding=0):
 
 
 def conv2d(x, weight, bias=None, stride=1, padding=0):
-    """2-D convolution (really cross-correlation, like every DL library).
-
-    x: (N, C, H, W), weight: (F, C, kh, kw), bias: (F,) -> (N, F, Ho, Wo)
-
-    Forward:  out = im2col(x) @ W_flat^T + b
-    Backward: with G = upstream grad reshaped to (N*Ho*Wo, F):
-              dW = G^T @ cols,  db = sum(G),  dx = col2im(G @ W_flat)
-    """
+    """2-D convolution (really cross-correlation, like every DL library)."""
     F_, C, kh, kw = weight.shape
     N = x.shape[0]
     cols, Ho, Wo = im2col(x.data, kh, kw, stride, padding)
@@ -147,11 +115,7 @@ def conv2d(x, weight, bias=None, stride=1, padding=0):
 
 
 def max_pool2d(x, kernel_size=2, stride=None):
-    """Max pooling over k x k windows. x: (N, C, H, W) -> (N, C, Ho, Wo).
-
-    Backward routes each output's gradient to the single input that won the
-    max in its window (the first one, if there's a tie).
-    """
+    """Max pooling over k x k windows. x: (N, C, H, W) -> (N, C, Ho, Wo)."""
     k = kernel_size
     s = stride or k
     N, C, H, W = x.shape

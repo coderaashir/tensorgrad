@@ -1,11 +1,4 @@
-"""Train the scalar MLP on a 2-D "two moons" toy dataset.
-
-This is deliberately small: every number is its own graph node, so the scalar
-engine is slow (~30s for this run). The point is to see that backprop works end to end before we
-build the tensor version.
-
-    python examples/scalar_moons.py
-"""
+"""Train the scalar MLP on a 2-D "two moons" toy dataset."""
 
 import math
 import random
@@ -36,7 +29,6 @@ def main():
 
     for step in range(60):
         scores = [model(x) for x in X]
-        # SVM "max-margin" loss + L2 regularisation
         losses = [(1 + -yi * si).relu() for yi, si in zip(y, scores)]
         data_loss = sum(losses) * (1.0 / len(losses))
         reg_loss = 1e-4 * sum(p * p for p in model.parameters())
