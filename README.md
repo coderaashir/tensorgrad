@@ -1,9 +1,9 @@
 # tensorgrad
 
-My own mini PyTorch, built from scratch on NumPy. No torch anywhere.
+My own mini PyTorch, built from scratch on NumPy
 
 Started with autograd on single numbers (`tensorgrad/scalar`), then moved to
-full arrays, then built layers and optimizers on top and trained some models.
+full arrays, then built layers and optimizers on top and trained some models
 
 ## Results
 
